@@ -89,12 +89,8 @@ class FinLlamaInferencer:
         sentiment_label = self.id_to_label[predicted_class]
         
         result = {
-            'sentiment_label': sentiment_label,
-            'confidence_score': confidence_score,
-            'predicted_class': predicted_class,
-            'probabilities': {
-                self.id_to_label[i]: float(p) for i, p in enumerate(probabilities)
-            }
+            "label": sentiment_label,
+            "confidence": confidence_score
         }
         
         return result
@@ -126,6 +122,5 @@ if __name__ == "__main__":
     result = inferencer.infer(sample_text)
     
     print(f"\nText: {sample_text}")
-    print(f"Sentiment Label: {result['sentiment_label']}")
-    print(f"Confidence Score: {result['confidence_score']:.4f}")
-    print(f"All Probabilities: {result['probabilities']}")
+    print(f"Label: {result['label']}")
+    print(f"Confidence: {result['confidence']:.4f}")

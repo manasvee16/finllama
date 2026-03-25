@@ -355,8 +355,3 @@ For issues, questions, or suggestions:
 - **FinBERT**: https://huggingface.co/ProsusAI/finbert
 - **Financial News Dataset**: https://huggingface.co/datasets/Brianferrell787/financial-news-multisource
 
-## Authors
-
-Created as part of financial NLP research project.
-
-Last Updated: February 27, 2026
