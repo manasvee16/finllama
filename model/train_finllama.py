@@ -1,12 +1,3 @@
-# Copilot Prompt:
-# Load tokenized labeled train/val/test splits.
-# Load FinLlama model from finllama_lora_model.py.
-# Fine-tune using HuggingFace Trainer with AdamW optimizer.
-# Train only LoRA adapters and classification head.
-# Save trained LoRA adapter weights.
-# Evaluate on validation and test splits.
-# Save predictions and metrics.
-
 import os
 import sys
 import torch
@@ -55,7 +46,7 @@ def train_finllama(output_dir="./model_output/finllama"):
     
     # Step 1: Load datasets from parquet shards
     print("[Step 1] Loading financial news dataset from parquet shards...")
-    dataset_dict = load_financial_news_dataset(shard_dir="./financial_news_shards")
+    dataset_dict = load_financial_news_dataset(shard_dir="./financial_news_shards_labeled/")
     
     if dataset_dict is None:
         print("[ERROR] Failed to load dataset")
@@ -81,6 +72,16 @@ def train_finllama(output_dir="./model_output/finllama"):
         return None
     
     print(f"  Tokenized columns: {tokenized_datasets['train'].column_names}")
+    if "labels" not in tokenized_datasets["train"].column_names:
+        raise KeyError("Tokenized dataset is missing required 'labels' column. Check sentiment->labels mapping.")
+
+    # Quick sanity-check that labels are integer-coded (0/1/2).
+    train_ds = tokenized_datasets["train"]
+    n_sample = min(2000, len(train_ds))
+    # Use select() so we don't accidentally materialize the entire label column.
+    train_labels_sample = train_ds.select(range(n_sample))["labels"]
+    unique_labels = sorted(set(int(x) for x in train_labels_sample))
+    print(f"  Sample label values (train, up to 2000 samples): {unique_labels}")
     
     # Step 3: Load FinLlama model with LoRA adapters
     print("\n[Step 3] Loading FinLLaMA model with LoRA adapters...")
@@ -153,6 +154,20 @@ def train_finllama(output_dir="./model_output/finllama"):
         if isinstance(value, float):
             print(f"{key:25s}: {value:.4f}")
     print("="*80)
+
+    # Save validation predictions
+    print("\n[INFERENCE] Generating predictions on validation set...")
+    val_predictions = trainer.predict(tokenized_datasets['validation'])
+    val_pred_labels = np.argmax(val_predictions.predictions, axis=-1)
+    val_true_labels = tokenized_datasets['validation']['labels']
+
+    val_pred_df = pd.DataFrame({
+        "true_label": val_true_labels,
+        "predicted_label": val_pred_labels,
+    })
+    val_pred_path = os.path.join(output_dir, "val_predictions.csv")
+    val_pred_df.to_csv(val_pred_path, index=False)
+    print(f"  Validation predictions saved to {val_pred_path}")
     
     # Evaluate on test set
     print("\n[EVALUATION] Evaluating on test set...")
@@ -180,6 +195,11 @@ def train_finllama(output_dir="./model_output/finllama"):
     pred_path = os.path.join(output_dir, "predictions.csv")
     pred_df.to_csv(pred_path, index=False)
     print(f"  Predictions saved to {pred_path}")
+
+    # Also save a clearer test-only filename.
+    test_pred_path = os.path.join(output_dir, "test_predictions.csv")
+    pred_df.to_csv(test_pred_path, index=False)
+    print(f"  Test predictions saved to {test_pred_path}")
     
     # Save validation metrics
     val_metrics_df = pd.DataFrame([val_results])

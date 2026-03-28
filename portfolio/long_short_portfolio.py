@@ -1,14 +1,3 @@
-# Copilot Prompt:
-# Implement long-short portfolio construction.
-# Inputs:
-# - daily sentiment per company
-# - daily stock returns CSV from Yahoo Finance.
-# Steps:
-# - Rank companies by sentiment each day.
-# - Long top 35%, short bottom 35%.
-# - Compute daily portfolio return = mean(long_returns) - mean(short_returns).
-# Output daily portfolio returns.
-
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -42,19 +31,7 @@ def construct_long_short_portfolio(daily_sentiment_df, daily_returns_df):
     )
     
     if merged_df.empty:
-        print("Warning: No matching data between sentiment and returns. Creating synthetic portfolio.")
-        # Create synthetic portfolio returns
-        portfolio_returns = []
-        for date in daily_sentiment_df['date'].unique():
-            portfolio_returns.append({
-                'date': date,
-                'portfolio_return': np.random.normal(0.0005, 0.01),
-                'long_return': np.random.normal(0.001, 0.01),
-                'short_return': np.random.normal(-0.0005, 0.01),
-                'n_long': 1,
-                'n_short': 1
-            })
-        return pd.DataFrame(portfolio_returns)
+        raise ValueError("No valid data available for portfolio backtesting")
     
     portfolio_returns = []
     
@@ -213,17 +190,8 @@ def fetch_daily_returns_yfinance(tickers, start_date, end_date):
             print(f"  Error fetching {ticker}: {e}")
     
     if not returns_data:
-        print("  No returns data fetched. Creating synthetic data...")
-        # Create synthetic data if real data not available
-        for ticker in tickers:
-            dates = pd.date_range(start_date, end_date, freq='D')
-            for date in dates:
-                returns_data.append({
-                    'ticker': ticker,
-                    'date': date.strftime('%Y-%m-%d'),
-                    'daily_return': np.random.normal(0.0005, 0.01)
-                })
-    
+        raise ValueError("No valid data available for portfolio backtesting")
+
     return pd.DataFrame(returns_data)
 
 def save_portfolio_returns(portfolio_returns_df, output_path="./results/portfolio_returns.csv"):
@@ -289,6 +257,15 @@ def run_long_short_portfolio_strategy(
     
     daily_sentiment = pd.read_csv(sentiment_csv)
     print(f"  Loaded {daily_sentiment.shape[0]:,} sentiment records")
+
+    if "ticker" not in daily_sentiment.columns:
+        raise ValueError("No valid data available for portfolio backtesting")
+
+    # Validate ticker column contains non-empty tickers.
+    tickers_series = daily_sentiment["ticker"].dropna().astype(str).str.strip()
+    if tickers_series.empty:
+        raise ValueError("No valid data available for portfolio backtesting")
+
     print(f"  Unique tickers: {daily_sentiment['ticker'].nunique()}")
     print(f"  Date range: {daily_sentiment['date'].min()} to {daily_sentiment['date'].max()}")
     

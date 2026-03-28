@@ -13,7 +13,7 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
 
-def load_parquet_shards(shard_dir="./financial_news_shards"):
+def load_parquet_shards(shard_dir="./financial_news_shards_labeled/"):
     """
     Load all Parquet shards from directory and combine them.
     
@@ -57,8 +57,7 @@ def add_sentiment_labels(df, sentiment_col="sentiment"):
     """
     Add sentiment labels to dataset.
     
-    NOTE: Sentiment labels should be added via auto_label_finbert.py first.
-    For now, we add a placeholder neutral sentiment (1) for all records.
+    Sentiment labels must already exist in the labeled Parquet shards.
     
     Args:
         df: Input DataFrame with text and date columns
@@ -68,10 +67,13 @@ def add_sentiment_labels(df, sentiment_col="sentiment"):
         DataFrame with added sentiment column
     """
     if sentiment_col not in df.columns:
-        print(f"\n[WARNING] Sentiment column not found in data.")
-        print(f"   To add sentiment labels, run: python data/auto_label_finbert.py")
-        print(f"   For now, adding placeholder sentiment labels (neutral=1)...")
-        df[sentiment_col] = 1  # Placeholder: all neutral
+        print("Sentiment labels missing. Run label_finbert_on_parquet_shards.py first.")
+        raise KeyError(
+            f"Missing required column '{sentiment_col}' in Parquet shards."
+        )
+
+    # Ensure integer class labels (0,1,2).
+    df[sentiment_col] = pd.to_numeric(df[sentiment_col], errors="raise").astype(int)
     
     return df
 
@@ -288,7 +290,7 @@ def _tokenize_split(dataset, tokenizer, text_col, label_col, max_length, batch_s
     return tokenized_dataset
 
 
-def load_financial_news_dataset(shard_dir="./financial_news_shards",
+def load_financial_news_dataset(shard_dir="./financial_news_shards_labeled/",
                                add_stats=True):
     """
     Load processed financial news dataset from Parquet shards.
@@ -310,8 +312,14 @@ def load_financial_news_dataset(shard_dir="./financial_news_shards",
     if df is None:
         return None
     
-    # Step 2: Add sentiment labels (if not present, use placeholder)
+    # Step 2: Validate sentiment labels
     df = add_sentiment_labels(df)
+
+    # Validation check: print distribution before splitting
+    print("\nSentiment label distribution (0=negative, 1=neutral, 2=positive):")
+    vc = df["sentiment"].value_counts(dropna=False).sort_index()
+    for label_id in [0, 1, 2]:
+        print(f"  {label_id}: {int(vc.get(label_id, 0)):,}")
     
     # Step 3: Extract ticker information
     df = add_ticker_column(df)

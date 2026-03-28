@@ -165,7 +165,8 @@ def run_batch_sentiment_inference(
     
     # Step 1: Load dataset
     print(f"[Step 1] Loading dataset split: {dataset_split}...")
-    dataset_dict = load_financial_news_dataset(shard_dir="./financial_news_shards")
+    print("Using labeled dataset for inference")
+    dataset_dict = load_financial_news_dataset(shard_dir="./financial_news_shards_labeled/")
     
     if dataset_dict is None:
         print("[ERROR] Failed to load dataset")
@@ -191,6 +192,7 @@ def run_batch_sentiment_inference(
         text = article.get('text', '')
         ticker = article.get('ticker', 'N/A')
         date = article.get('date', 'N/A')
+            true_sentiment = article.get('sentiment', None)
         
         # Run inference
         result = inferencer.infer(text)
@@ -199,6 +201,7 @@ def run_batch_sentiment_inference(
         prediction = {
             'text': text,
             'sentiment_label': result['sentiment_label'],
+                'true_sentiment': true_sentiment,
             'confidence': result['confidence'],
             'ticker': ticker,
             'date': date
@@ -213,7 +216,7 @@ def run_batch_sentiment_inference(
     predictions_df = pd.DataFrame(predictions)
     
     # Ensure correct column order
-    predictions_df = predictions_df[['text', 'sentiment_label', 'confidence', 'ticker', 'date']]
+    predictions_df = predictions_df[['text', 'sentiment_label', 'true_sentiment', 'confidence', 'ticker', 'date']]
     
     print(f"  DataFrame shape: {predictions_df.shape}")
     print(f"  Sentiment distribution:")

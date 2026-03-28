@@ -10,8 +10,15 @@ import numpy as np
 import json
 import os
 from pathlib import Path
-from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
-                             f1_score, confusion_matrix, classification_report)
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    precision_recall_fscore_support,
+    confusion_matrix,
+    classification_report,
+)
 
 try:
     import matplotlib.pyplot as plt
@@ -60,22 +67,24 @@ def compute_metrics(y_true, y_pred, model_name):
         return None
     
     accuracy = accuracy_score(y_true, y_pred)
-    precision = precision_score(y_true, y_pred, average='weighted', zero_division=0)
-    recall = recall_score(y_true, y_pred, average='weighted', zero_division=0)
-    f1 = f1_score(y_true, y_pred, average='weighted', zero_division=0)
-    cm = confusion_matrix(y_true, y_pred)
-    
+
+    # Macro metrics (matches requirement: macro + per-class)
+    precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
+        y_true, y_pred, labels=[0, 1, 2], average="macro", zero_division=0
+    )
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
+
     # Per-class metrics
-    precision_per_class = precision_score(y_true, y_pred, average=None, zero_division=0)
-    recall_per_class = recall_score(y_true, y_pred, average=None, zero_division=0)
-    f1_per_class = f1_score(y_true, y_pred, average=None, zero_division=0)
+    precision_per_class, recall_per_class, f1_per_class, support_pc = precision_recall_fscore_support(
+        y_true, y_pred, labels=[0, 1, 2], average=None, zero_division=0
+    )
     
     return {
         'model': model_name,
         'accuracy': float(accuracy),
-        'precision': float(precision),
-        'recall': float(recall),
-        'f1_score': float(f1),
+        'precision': float(precision_macro),
+        'recall': float(recall_macro),
+        'f1_score': float(f1_macro),
         'precision_per_class': {
             'negative': float(precision_per_class[0]),
             'neutral': float(precision_per_class[1]),
@@ -214,15 +223,18 @@ def evaluate_all_models(
     print(f"  Loaded {predictions_df.shape[0]:,} predictions")
     print(f"  Columns: {list(predictions_df.columns)}")
     
-    # Extract true labels from sentiment column (assuming numeric: 0=negative, 1=neutral, 2=positive)
-    # If sentiment_label is string, convert to numeric
-    label_to_id = {'negative': 0, 'neutral': 1, 'positive': 2}
-    if predictions_df['sentiment_label'].dtype == 'object':
-        y_true = predictions_df['sentiment_label'].map(label_to_id).values
+    # y_true = true_sentiment (numeric codes expected: negative=0, neutral=1, positive=2)
+    y_true = pd.to_numeric(predictions_df["true_sentiment"], errors="raise").astype(int).values
+
+    # y_pred = sentiment_label (string -> numeric conversion)
+    label_to_id = {"negative": 0, "neutral": 1, "positive": 2}
+    pred_raw = predictions_df["sentiment_label"]
+    if pred_raw.dtype == "object":
+        y_pred = pred_raw.str.lower().map(label_to_id).values
     else:
-        y_true = predictions_df['sentiment_label'].values
+        y_pred = pd.to_numeric(pred_raw, errors="raise").values
     
-    print(f"  Label distribution:")
+    print(f"  Label distribution (true_sentiment):")
     unique, counts = np.unique(y_true, return_counts=True)
     for label_id, count in zip(unique, counts):
         label_name = {0: 'negative', 1: 'neutral', 2: 'positive'}.get(label_id, 'unknown')
@@ -235,18 +247,7 @@ def evaluate_all_models(
     for model_name in models:
         print(f"\n  Evaluating {model_name}...")
         
-        # For now, simulate predictions by perturbing the true labels slightly
-        # In production, load actual model predictions from model output directories
-        # FinLLaMA predictions: from model_output/finllama/predictions.csv
-        # FinBERT predictions: from baselines/finbert_predictions.csv
-        
-        # Create synthetic predictions for demo (in production, load from model output)
-        predictive_power = 0.65 if model_name == 'FinLLaMA' else 0.60  # FinLLaMA slightly better
-        y_pred = np.random.choice(
-            [0, 1, 2],
-            size=len(y_true),
-            p=[0.15, 0.35 + predictive_power*0.3, 0.50 - predictive_power*0.3]
-        )
+        # Use the real predictions already computed from sentiment_label outside the loop.
         
         # In production, load actual predictions:
         # if model_name == 'FinLLaMA':
@@ -274,6 +275,9 @@ def evaluate_all_models(
                 f1 = metrics['f1_per_class'][cls_name]
                 supp = metrics['support'][cls_name]
                 print(f"      {cls_name:10s}: P={prec:.4f}, R={rec:.4f}, F1={f1:.4f}, Support={supp:,}")
+
+            print(f"\n    Confusion matrix (rows=true, cols=pred; labels: 0=neg,1=neu,2=pos):")
+            print(np.asarray(metrics["confusion_matrix"]))
             
             # Plot confusion matrix
             plot_confusion_matrix(y_true, y_pred, model_name, output_dir)

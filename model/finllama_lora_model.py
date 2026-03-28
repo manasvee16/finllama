@@ -1,11 +1,3 @@
-# Copilot Prompt:
-# Load "meta-llama/Llama-2-7b-hf" using HuggingFace Transformers.
-# Apply LoRA adapters using the peft library with:
-# r=8, lora_alpha=32, target_modules=["q_proj","v_proj"].
-# Freeze all base model parameters.
-# Add a linear classification head mapping hidden_size to 3 sentiment classes.
-# Return the PEFT-wrapped model.
-
 import torch
 import torch.nn as nn
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -52,10 +44,13 @@ def create_finllama_lora_model(base_model="meta-llama/Llama-2-7b-hf",
     print(f"Applying LoRA adapters (r={r}, lora_alpha={lora_alpha})...")
     model = get_peft_model(base_model_obj, lora_config)
     
-    # Freeze all base model parameters - only LoRA parameters trainable
+    # Freeze base model parameters, but keep:
+    #  - LoRA parameters trainable
+    #  - sequence classification head trainable (classifier/score)
     for name, param in model.named_parameters():
-        if 'lora' not in name:
-            param.requires_grad = False
+        is_lora = "lora" in name
+        is_cls_head = ("classifier" in name) or ("score" in name)
+        param.requires_grad = bool(is_lora or is_cls_head)
     
     # Print parameter statistics
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
