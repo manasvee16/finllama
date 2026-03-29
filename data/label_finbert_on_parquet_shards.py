@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import time
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +17,7 @@ INPUT_SHARDS_DIR = Path("./financial_news_shards")
 OUTPUT_SHARDS_DIR = Path("./financial_news_shards_labeled")
 
 # Keep batch sizes moderate; this pipeline uses encoder-only models and truncation to 512.
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 MAX_LENGTH = 512
 
 
@@ -50,6 +51,7 @@ def _infer_sentiment_and_confidence(
     # Keep long CPU runs from looking "hung" in terminals/logs.
     log_every = max(1, min(50, max(1, total_batches // 20)))
 
+    batch_times = []
     for batch_idx, start in enumerate(range(0, n, batch_size), start=1):
         batch_texts = texts[start : start + batch_size]
 
@@ -61,6 +63,7 @@ def _infer_sentiment_and_confidence(
                 flush=True,
             )
 
+        batch_start_time = time.time()
         inputs = tokenizer(
             batch_texts,
             padding="max_length",
@@ -77,6 +80,10 @@ def _infer_sentiment_and_confidence(
 
             pred_indices = torch.argmax(probs, dim=-1).detach().cpu().numpy()
             batch_conf = torch.max(probs, dim=-1).values.detach().cpu().numpy().astype(float)
+
+        batch_time = time.time() - batch_start_time
+        batch_times.append(batch_time)
+        print(f"      Batch {batch_idx}/{total_batches} took {batch_time:.2f} sec", flush=True)
 
         # Convert predictions to required numeric encoding.
         for idx in pred_indices.tolist():
@@ -99,6 +106,7 @@ def _infer_sentiment_and_confidence(
 
         confidences.extend([float(x) for x in batch_conf.tolist()])
 
+    print(f"    Mean batch time: {np.mean(batch_times):.2f} sec, Median: {np.median(batch_times):.2f} sec", flush=True)
     return (
         np.asarray(sentiment_codes, dtype=np.int64),
         np.asarray(confidences, dtype=np.float32),
@@ -122,6 +130,8 @@ def label_shards_with_finbert(
     finbert_model_name: str = FINBERT_MODEL_NAME,
     shard_number: int | None = None,
     max_rows: int | None = None,
+    shard_range_start: int | None = None,
+    shard_range_end: int | None = None,
 ) -> None:
     output_shards_dir.mkdir(parents=True, exist_ok=True)
 
@@ -131,6 +141,22 @@ def label_shards_with_finbert(
     parquet_files = sorted(input_shards_dir.glob("shard_*.parquet"), key=lambda p: _extract_shard_number(p.name))
     if not parquet_files:
         raise FileNotFoundError(f"No shard_*.parquet files found in {input_shards_dir.resolve()}")
+
+    # Filter by shard_number or range if specified
+    if shard_number is not None:
+        parquet_files = [p for p in parquet_files if _extract_shard_number(p.name) == shard_number]
+        if not parquet_files:
+            raise FileNotFoundError(
+                f"No shard_XXXX.parquet found for shard_number={shard_number} in {input_shards_dir.resolve()}"
+            )
+    elif shard_range_start is not None or shard_range_end is not None:
+        start = shard_range_start if shard_range_start is not None else float('-inf')
+        end = shard_range_end if shard_range_end is not None else float('inf')
+        parquet_files = [p for p in parquet_files if start <= _extract_shard_number(p.name) <= end]
+        if not parquet_files:
+            raise FileNotFoundError(
+                f"No shard_XXXX.parquet files found in range {start} to {end} in {input_shards_dir.resolve()}"
+            )
 
     device = _get_device()
     print(f"FinBERT model: {finbert_model_name}", flush=True)
@@ -193,14 +219,8 @@ def label_shards_with_finbert(
     else:
         id2label = {}
 
-    if shard_number is not None:
-        parquet_files = [p for p in parquet_files if _extract_shard_number(p.name) == shard_number]
-        if not parquet_files:
-            raise FileNotFoundError(
-                f"No shard_XXXX.parquet found for shard_number={shard_number} in {input_shards_dir.resolve()}"
-            )
-
     for shard_idx, shard_path in enumerate(parquet_files, start=1):
+        shard_start_time = time.time()
         shard_basename = shard_path.name  # e.g., shard_0001.parquet
         shard_number = _extract_shard_number(shard_basename)
         print(
@@ -244,10 +264,13 @@ def label_shards_with_finbert(
         out_path = output_shards_dir / shard_basename
         df_out.to_parquet(str(out_path), index=False)
         print(f"  Saved labeled shard to: {out_path.resolve()}", flush=True)
+        shard_time = time.time() - shard_start_time
+        print(f"  Shard {shard_basename} processed in {shard_time:.2f} sec ({shard_time/60:.2f} min)", flush=True)
         print(flush=True)
 
 
 if __name__ == "__main__":
+    start_time = time.time()
     parser = argparse.ArgumentParser(description="Label FinBERT sentiment into Parquet shards.")
     parser.add_argument("--input-shards-dir", type=str, default=str(INPUT_SHARDS_DIR))
     parser.add_argument("--output-shards-dir", type=str, default=str(OUTPUT_SHARDS_DIR))
@@ -255,6 +278,8 @@ if __name__ == "__main__":
     parser.add_argument("--max-length", type=int, default=MAX_LENGTH)
     parser.add_argument("--finbert-model-name", type=str, default=FINBERT_MODEL_NAME)
     parser.add_argument("--shard-number", type=int, default=None, help="Process only shard_XXXX.parquet with this numeric XXXX.")
+    parser.add_argument("--shard-range-start", type=int, default=None, help="Start of shard number range (inclusive).")
+    parser.add_argument("--shard-range-end", type=int, default=None, help="End of shard number range (inclusive).")
     parser.add_argument("--max-rows", type=int, default=None, help="Limit rows per shard (e.g., first 5000 rows).")
 
     args = parser.parse_args()
@@ -266,5 +291,8 @@ if __name__ == "__main__":
         finbert_model_name=args.finbert_model_name,
         shard_number=args.shard_number,
         max_rows=args.max_rows,
+        shard_range_start=args.shard_range_start,
+        shard_range_end=args.shard_range_end,
     )
-
+    total_time = time.time() - start_time
+    print(f"\nTotal script runtime: {total_time:.2f} seconds ({total_time/60:.2f} min)", flush=True)
