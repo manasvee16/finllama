@@ -159,8 +159,8 @@ Environment setup utilities
 ## 🚀 Installation
 
 ```bash
-git clone https://github.com/your-username/finllama.git
-cd finllama
+git clone https://github.com/Manasvee16/FINLLAMA.git
+cd FINLLAMA
 
 pip install -r requirements.txt
 ```
@@ -239,32 +239,6 @@ python src/portfolio/backtest_portfolio.py
 
 ---
 
-## 📊 Model Evaluation
-
-Evaluation includes:
-
-* Accuracy
-* Precision / Recall
-* Weighted F1 Score
-* ROC-AUC
-* Confusion Matrix
-
----
-
-## 📜 Citation
-
-If you use this work:
-
-```bibtex
-@project{finllama2026,
-  title={FinLLaMA: Financial Sentiment Analysis with LoRA-Fine-Tuned LLMs},
-  author={Manasvee Rathie},
-  year={2026}
-}
-```
-
----
-
 ## 📚 References
 
 * LLaMA-3.2 Model — https://huggingface.co/meta-llama/Llama-3.2-1B
@@ -272,22 +246,4 @@ If you use this work:
 * FinBERT — https://huggingface.co/yiyanghkust/finbert-tone
 * Financial News Dataset — https://huggingface.co/datasets/Brianferrell787/financial-news-multisource
 
-Source details adapted from: 
-
 ---
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a new branch
-3. Commit your changes
-4. Submit a pull request
-
----
-
-## 📄 License
-
-MIT License — for research and educational use.
-
----
-
