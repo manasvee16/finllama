@@ -1,357 +1,293 @@
-# Financial News Sentiment Analysis with FinLLaMA
+# FinLLaMA: Financial Sentiment Analysis with LoRA-Fine-Tuned LLM
 
-A comprehensive pipeline for fine-tuning and deploying the FinLLaMA model (Llama-2 with LoRA adapters) for financial sentiment analysis and portfolio management. This project processes financial news data to predict market sentiment and inform investment decisions.
+## 📌 Overview
 
-## Project Overview
+**FinLLaMA** is a reproducible research pipeline for financial sentiment analysis using a **LoRA-fine-tuned Large Language Model (LLM)**.
 
-This project implements an end-to-end workflow for:
+The project implements a **teacher-student framework**, where:
 
-1. **Data Loading & Preprocessing**: Extract and clean financial news from multiple sources
-2. **Model Fine-tuning**: Fine-tune Llama-2-7B with LoRA adapters for sentiment classification
-3. **Sentiment Inference**: Run sentiment analysis on financial news articles
-4. **Sentiment Aggregation**: Compute daily sentiment scores per company
-5. **Portfolio Analysis**: Use sentiment signals for long-short portfolio strategies
-6. **Model Evaluation**: Comprehensive analysis and benchmarking against baseline models
+* A pretrained financial model (FinBERT) generates **pseudo-labels**
+* A lightweight LLM (LLaMA) is fine-tuned using **parameter-efficient techniques (LoRA)**
 
-### Key Components
+The pipeline supports:
 
-- **Baselines**: BERT and FinBERT baseline models for comparison
-- **FinLLaMA**: Llama-2-7B fine-tuned with LoRA for financial sentiment analysis
-- **Data Pipeline**: Multi-source financial news data loader with deduplication
-- **Analysis Tools**: Error analysis, metrics computation, and model comparison utilities
+* Gated dataset ingestion
+* Automated labeling
+* Model fine-tuning
+* Inference & evaluation
+* Portfolio backtesting
 
-## Prerequisites
+---
 
-- **Python 3.8+**
-- **CUDA 11.8+** (for GPU support)
-- **Git LFS** (for large model files)
-- **HuggingFace Account** (for model access and authentication)
+## ⚙️ Key Features
 
-## Installation
+* 🔹 End-to-end reproducible pipeline
+* 🔹 Teacher-student training (FinBERT → FinLLaMA)
+* 🔹 Parameter-efficient fine-tuning (LoRA + quantization)
+* 🔹 Financial sentiment classification
+* 🔹 Backtesting trading strategies based on sentiment
+* 🔹 Modular and extensible codebase
 
-### 1. Clone the Repository
+---
 
-```bash
-git clone https://github.com/Manasvee16/FINLLAMA.git
-cd base-paper-code
+## 🧠 Architecture
+
+```
+Raw Financial News Data
+        ↓
+Data Ingestion & Cleaning
+        ↓
+FinBERT (Teacher Model)
+        ↓
+Pseudo-Labeled Dataset
+        ↓
+LoRA Fine-Tuning (LLaMA)
+        ↓
+FinLLaMA Model
+        ↓
+Evaluation + Portfolio Backtesting
 ```
 
-### 2. Create a Virtual Environment
+---
+
+## 📁 Repository Structure
+
+### Core Files
+
+* `README.md` — Project documentation
+* `requirements.txt` — Dependencies
+* `CODEBASE_INDEX.md` — Detailed codebase breakdown
+
+---
+
+### 📊 Data
+
+* `data/financial_news_shards/`
+  Raw unlabeled financial news (Parquet shards)
+
+* `data/financial_news_shards_labeled/`
+  FinBERT-labeled data with sentiment + confidence
+
+* `data/llm_training_data/`
+  Final train/val/test splits
+
+---
+
+### 🤖 Models
+
+* `models/Llama-3.2-1B/`
+  Base LLaMA model
+
+* `models/finllama_lora/`
+  Fine-tuned LoRA adapters
+
+* `models/finbert-tone/`
+  FinBERT teacher model
+
+---
+
+### 📈 Results
+
+* `results/predictions/` — Model outputs
+* `results/figures/` — Evaluation & backtesting plots
+
+---
+
+## 🧩 Source Modules
+
+### `src/data_prep/`
+
+Handles dataset ingestion and labeling
+
+* `financial_multisource_loader.py`
+  → Loads and preprocesses financial news
+
+* `label_finbert_on_parquet_shards.py`
+  → Generates sentiment labels using FinBERT
+
+* `prepare_llm_data.py`
+  → Creates training/validation/test datasets
+
+---
+
+### `src/modeling/`
+
+Model training and inference
+
+* `train_model.py`
+  → Fine-tunes LLaMA using LoRA
+
+* `run_finllama_inference.py`
+  → Inference with fine-tuned model
+
+* `run_base_llama_inference.py`
+  → Baseline model inference
+
+---
+
+### `src/evaluation/`
+
+Performance evaluation
+
+* `evaluate_all.py`
+  → Accuracy, F1, precision, recall, confusion matrix
+
+* `plot_roc.py`
+  → ROC curves and AUC analysis
+
+---
+
+### `src/portfolio/`
+
+Trading strategy simulation
+
+* `backtest_portfolio.py`
+  → Converts sentiment → trading signals
+  → Simulates returns and evaluates performance
+
+---
+
+### `src/setup/`
+
+Environment setup utilities
+
+* `setup_huggingface_auth.py`
+  → Handles Hugging Face authentication for gated datasets
+
+---
+
+## 🚀 Installation
 
 ```bash
-# Using venv
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+git clone https://github.com/your-username/finllama.git
+cd finllama
 
-# Or using conda
-conda create -n finllama python=3.10
-conda activate finllama
-```
-
-### 3. Install Dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 4. Set Up HuggingFace Authentication
+---
 
-The financial news dataset is gated and requires HuggingFace authentication:
-
-```bash
-# Option 1: Interactive setup
-python setup_huggingface_auth.py
-
-# Option 2: Manual setup using CLI
-huggingface-cli login
-# Paste your HuggingFace API token when prompted
-# Get your token at: https://huggingface.co/settings/tokens
-
-# Option 3: Set environment variable
-export HF_TOKEN="your_token_here"
-```
-
-**Important**: You also need to accept the dataset license:
-- Visit: https://huggingface.co/datasets/Brianferrell787/financial-news-multisource
-- Click "Agree and access dataset"
-
-## Quick Start Guide
-
-### Step 1: Load and Preprocess Data
+## 🔐 Setup (Hugging Face Access)
 
 ```bash
-# Load financial news data from HuggingFace
-cd data
-python financial_multisource_loader.py
-
-# This will:
-# - Download the financial news dataset
-# - Remove duplicates and normalize text
-# - Save data into Parquet shards
-# Output: financial_news_shards/ directory with shard_0000.parquet, etc.
+python src/setup/setup_huggingface_auth.py
 ```
 
-### Step 2: Prepare Labeled Data
+You will need:
+
+* A Hugging Face account
+* Access token for gated datasets
+
+---
+
+## ▶️ Execution Pipeline
+
+Run the pipeline in order:
 
 ```bash
-# Auto-label data using FinBERT for sentiment
-python auto_label_finbert.py
+# 1. Data ingestion
+python src/data_prep/financial_multisource_loader.py
 
-# Or preprocess existing labeled dataset
-python preprocess.py
+# 2. Label generation (FinBERT)
+python src/data_prep/label_finbert_on_parquet_shards.py
 
-# Output: cleaned_train.csv, cleaned_test.csv in data/
+# 3. Dataset preparation
+python src/data_prep/prepare_llm_data.py
+
+# 4. Model training (FinLLaMA)
+python src/modeling/train_model.py
+
+# 5. Inference
+python src/modeling/run_finllama_inference.py
+python src/modeling/run_base_llama_inference.py
+
+# 6. Evaluation
+python src/evaluation/evaluate_all.py
+python src/evaluation/plot_roc.py
+
+# 7. Portfolio backtesting
+python src/portfolio/backtest_portfolio.py
 ```
 
-### Step 3: Train FinLLaMA Model
+---
 
-```bash
-cd ../model
+## 📊 Evaluation Metrics
 
-# Train FinLLaMA with LoRA adapters
-python train_finllama.py
+* Accuracy
+* Weighted F1 Score
+* Precision / Recall
+* ROC-AUC
+* Confusion Matrix
 
-# This will:
-# - Load Llama-2-7B base model
-# - Fine-tune LoRA adapters
-# - Train sentiment classification head
-# - Save trained weights to model_output/finllama_lora/
-# - Output: training metrics and evaluation results
-```
+---
 
-### Step 4: Run Sentiment Inference
+## 💡 Research Insights
 
-```bash
-cd ../inference
+* Uses **teacher-student learning** for scalable labeling
+* Achieves efficiency via **LoRA adapters**
+* Reduces compute cost with **quantization**
+* Bridges NLP → Finance via **strategy backtesting**
 
-# Use trained model for inference
-python sentiment_infer.py
+---
 
-# Or use as a class in your code:
-# from sentiment_infer import SentimentInferencer
-# inferencer = SentimentInferencer(adapter_path="path/to/lora/weights")
-# results = inferencer.infer_batch(texts_list)
-```
+## 📌 Future Work
 
-### Step 5: Aggregate Sentiment Scores
+* Multi-modal financial signals (news + price + social media)
+* Real-time inference pipeline
+* Reinforcement learning for trading strategies
+* Larger LLM variants (e.g., 7B+)
 
-```bash
-cd ../portfolio
+---
 
-# Compute daily sentiment per company
-python sentiment_aggregate.py
+## 📊 Model Evaluation
 
-# Output: daily_sentiment.csv with aggregated sentiment signals
-```
+Evaluation includes:
 
-### Step 6: Portfolio Analysis
+* Accuracy
+* Precision / Recall
+* Weighted F1 Score
+* ROC-AUC
+* Confusion Matrix
 
-```bash
-# Generate long-short portfolio strategies based on sentiment
-python long_short_portfolio.py
+---
 
-# Output: portfolio performance metrics and trading signals
-```
+## 📜 Citation
 
-## Project Structure
-
-```
-base-paper-code/
-├── README.md                          # This file
-├── .gitignore                         # Git ignore rules
-├── setup_huggingface_auth.py          # HuggingFace authentication setup
-├── kaggle-data.csv                    # Sample Kaggle dataset (optional)
-│
-├── data/                              # Data loading and preprocessing
-│   ├── financial_multisource_loader.py    # Load data from HuggingFace
-│   ├── auto_label_finbert.py              # Auto-label using FinBERT
-│   ├── load_datasets.py                   # Dataset loading utilities
-│   ├── preprocess.py                      # Text preprocessing
-│   └── preprocess_news.py                 # News-specific preprocessing
-│
-├── baselines/                         # Baseline models for comparison
-│   ├── train_bert_baseline.py             # BERT baseline
-│   └── train_finbert.py                   # FinBERT baseline
-│
-├── model/                             # FinLLaMA model training
-│   ├── train_finllama.py                  # Main training script
-│   ├── finllama_lora_model.py             # LoRA model architecture
-│   ├── finllama_lora.py                   # LoRA utilities
-│   ├── inference_finllama.py              # Model inference utilities
-│   └── train.py                           # Alternative training script
-│
-├── inference/                         # Inference and prediction
-│   └── sentiment_infer.py                 # Sentiment inference class
-│
-├── portfolio/                         # Portfolio analysis tools
-│   ├── sentiment_aggregate.py             # Aggregate daily sentiment
-│   └── long_short_portfolio.py            # Portfolio strategies
-│
-├── analysis/                          # Analysis and evaluation
-│   └── model_behaviour_analysis.py        # Model analysis tools
-│
-└── utils/                             # Utilities
-    ├── metrics.py                         # Evaluation metrics
-    ├── evaluate_all.py                    # Comprehensive evaluation
-    ├── error_analysis.py                  # Error analysis tools
-    └── hf_login.py                        # HuggingFace login utilities
-```
-
-## Running Individual Components
-
-### Train Baseline Models
-
-```bash
-# Train BERT baseline
-python baselines/train_bert_baseline.py
-
-# Train FinBERT baseline
-python baselines/train_finbert.py
-```
-
-### Evaluate All Models
-
-```bash
-# Comprehensive evaluation of all trained models
-python utils/evaluate_all.py
-```
-
-### Model Behavior Analysis
-
-```bash
-# Analyze model predictions and behavior
-python analysis/model_behaviour_analysis.py
-```
-
-## Configuration
-
-Key hyperparameters and configurations can be modified in each script:
-
-- **Model**: Change base model in `model/train_finllama.py` (default: meta-llama/Llama-2-7b-hf)
-- **LoRA Rank**: Adjust `lora_r` parameter for LoRA configuration
-- **Batch Size**: Modify `per_device_train_batch_size` in trainer arguments
-- **Learning Rate**: Adjust `learning_rate` in training configuration
-- **Max Sequence Length**: Change `max_length` in tokenization (default: 512)
-
-## Output Structure
-
-After running the pipeline, you'll have:
-
-```
-model_output/
-├── finllama_lora/              # FinLLaMA trained weights
-│   ├── adapter_config.json
-│   └── adapter_model.bin
-├── bert_baseline/              # BERT baseline results
-└── finbert_baseline/           # FinBERT baseline results
-
-results/
-├── finllama_predictions.csv    # Model predictions
-├── training_metrics.json       # Training statistics
-├── evaluation_results.json     # Test set evaluation
-└── sentiment_scores.csv        # Sentiment analysis results
-```
-
-## Performance Metrics
-
-Models are evaluated using:
-
-- **Accuracy**: Overall correctness
-- **Precision/Recall/F1**: Per-class performance metrics
-- **Weighted Average**: Handling class imbalance
-- **Confusion Matrix**: Detailed error analysis
-
-## Troubleshooting
-
-### HuggingFace Authentication Issues
-
-```bash
-# Clear cached credentials and re-authenticate
-rm -rf ~/.cache/huggingface/
-rm ~/.huggingface/token
-python setup_huggingface_auth.py
-```
-
-### Out of Memory (CUDA)
-
-Reduce `per_device_train_batch_size` in training scripts:
-
-```python
-per_device_train_batch_size=4,  # Reduce from 8 or 16
-gradient_accumulation_steps=2,
-```
-
-### Model Download Issues
-
-Ensure you have sufficient disk space (~15GB for Llama-2-7B) and stable internet connection. Use:
-
-```bash
-python -c "from transformers import AutoModel; AutoModel.from_pretrained('meta-llama/Llama-2-7b-hf')"
-```
-
-## Environment Variables
-
-Key environment variables for configuration:
-
-```bash
-# HuggingFace token for authentication
-export HF_TOKEN="your_token_here"
-
-# CUDA device selection
-export CUDA_VISIBLE_DEVICES=0
-
-# Disable CUDA if needed
-export CUDA_VISIBLE_DEVICES=""
-```
-
-## Model Weights
-
-Pre-trained model weights are available at:
-
-- **FinLLaMA**: `model_output/finllama_lora/`
-- **BERT Baseline**: `model_output/bert_baseline/`
-- **FinBERT Baseline**: `model_output/finbert_baseline/`
-
-Download or train these models before running inference.
-
-## Citation
-
-If you use this project in your research, please cite:
+If you use this work:
 
 ```bibtex
 @project{finllama2026,
-  title={Financial News Sentiment Analysis with FinLLaMA},
-  author={Your Name},
+  title={FinLLaMA: Financial Sentiment Analysis with LoRA-Fine-Tuned LLMs},
+  author={Manasvee Rathie},
   year={2026}
 }
 ```
 
-## License
+---
 
-This project is licensed under the MIT License. See LICENSE file for details.
+## 📚 References
 
-## Contributing
+* LLaMA-3.2 Model — https://huggingface.co/meta-llama/Llama-3.2-1B
+* LoRA (PEFT) — https://huggingface.co/docs/peft/methods/lora
+* FinBERT — https://huggingface.co/yiyanghkust/finbert-tone
+* Financial News Dataset — https://huggingface.co/datasets/Brianferrell787/financial-news-multisource
 
-Contributions are welcome! Please:
+Source details adapted from: 
+
+---
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/improvement`)
-3. Commit your changes (`git commit -am 'Add improvement'`)
-4. Push to the branch (`git push origin feature/improvement`)
-5. Open a Pull Request
+2. Create a new branch
+3. Commit your changes
+4. Submit a pull request
 
-## Support
+---
 
-For issues, questions, or suggestions:
+## 📄 License
 
-- Open an issue on GitHub
-- Check existing issues for similar problems
-- Review the troubleshooting section above
+MIT License — for research and educational use.
 
-## References
-
-- **Llama-2**: https://huggingface.co/meta-llama/Llama-2-7b-hf
-- **LoRA**: https://huggingface.co/docs/peft/methods/lora
-- **FinBERT**: https://huggingface.co/ProsusAI/finbert
-- **Financial News Dataset**: https://huggingface.co/datasets/Brianferrell787/financial-news-multisource
+---
 

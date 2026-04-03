@@ -1,8 +1,8 @@
-# FINLLAMA — Python dependencies
+# FINLLAMA — Python Dependencies
 # Install PyTorch with the correct CUDA build from https://pytorch.org/get-started/locally/ if using GPU.
 # Example (CUDA 12.x): pip install torch --index-url https://download.pytorch.org/whl/cu124
 
-# Core ML / Hugging Face
+# Core ML / Hugging Face (Used in src/modeling/ and src/data_prep/ labeling)
 torch>=2.1.0
 transformers>=4.36.0
 datasets>=2.16.0
@@ -11,7 +11,7 @@ peft>=0.7.0
 safetensors>=0.4.0
 huggingface_hub>=0.20.0
 
-# Data I/O & numerics (Parquet via pandas/datasets needs pyarrow)
+# Data I/O & Numerics (Used in src/data_prep/ for parquet sharding & splitting)
 numpy>=1.24.0
 pandas>=2.0.0
 pyarrow>=14.0.0
@@ -21,9 +21,9 @@ tqdm>=4.66.0
 # Configuration
 python-dotenv>=1.0.0
 
-# Portfolio / market data
+# Portfolio Simulation (Used in src/portfolio/backtest_portfolio.py)
 yfinance>=0.2.30
 
-# Optional: plots in utils/evaluate_all.py (confusion matrices)
+# Evaluation & Visualizations (Used in src/evaluation/ for ROC, Metrics, and Heatmaps)
 matplotlib>=3.8.0
 seaborn>=0.13.0
